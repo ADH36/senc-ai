@@ -99,6 +99,24 @@ export const initDatabase = () => {
     )
   `);
 
+  // User preferences table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_preferences (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      theme TEXT DEFAULT 'light' CHECK (theme IN ('light', 'dark', 'system')),
+      language TEXT DEFAULT 'en',
+      notifications BOOLEAN DEFAULT 1,
+      auto_save BOOLEAN DEFAULT 1,
+      default_provider TEXT DEFAULT 'google' CHECK (default_provider IN ('google', 'openrouter')),
+      default_model TEXT DEFAULT 'gemini-pro',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+      UNIQUE(user_id)
+    )
+  `);
+
   // Create indexes for better performance
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);

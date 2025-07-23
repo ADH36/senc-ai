@@ -6,10 +6,19 @@ import LoadingSpinner from '../components/LoadingSpinner';
 
 interface UserPreferences {
   theme: 'light' | 'dark' | 'system';
+  language: string;
   notifications: boolean;
   autoSave: boolean;
   defaultProvider: string;
   defaultModel: string;
+}
+
+interface UserStats {
+  totalConversations: number;
+  totalMessages: number;
+  totalTokens: number;
+  totalCost: number;
+  joinDate: string;
 }
 
 const SettingsPage = () => {
@@ -37,15 +46,43 @@ const SettingsPage = () => {
   // Preferences state
   const [preferences, setPreferences] = useState<UserPreferences>({
     theme: 'light',
+    language: 'en',
     notifications: true,
     autoSave: true,
     defaultProvider: 'google',
     defaultModel: 'gemini-pro',
   });
+  
+  // User stats state
+  const [userStats, setUserStats] = useState<UserStats>({
+    totalConversations: 0,
+    totalMessages: 0,
+    totalTokens: 0,
+    totalCost: 0,
+    joinDate: '',
+  });
+  
+  // Available models for each provider
+  const providerModels = {
+    google: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro'],
+    openrouter: ['gpt-4o', 'gpt-4-turbo', 'claude-3-opus', 'claude-3-sonnet', 'llama-3.1-405b'],
+  };
 
   useEffect(() => {
     fetchUserPreferences();
-  }, []);
+    fetchUserStats();
+    // Update profile form when user changes
+    if (user) {
+      setProfileForm({
+        name: user.name || '',
+        email: user.email || '',
+      });
+      setUserStats(prev => ({
+        ...prev,
+        joinDate: user.created_at || new Date().toISOString(),
+      }));
+    }
+  }, [user, fetchUserPreferences, fetchUserStats]);
 
   const fetchUserPreferences = async () => {
     try {
@@ -62,6 +99,30 @@ const SettingsPage = () => {
       }
     } catch (error) {
       console.error('Failed to fetch preferences:', error);
+    }
+  };
+  
+  const fetchUserStats = async () => {
+    try {
+      const response = await fetch('/api/user/dashboard', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserStats({
+          totalConversations: data.stats?.totalConversations || 0,
+          totalMessages: data.stats?.totalMessages || 0,
+          totalTokens: data.stats?.monthlyTokens || 0,
+          totalCost: data.stats?.monthlyCost || 0,
+          joinDate: user?.created_at || new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch user stats:', error);
     }
   };
 
@@ -389,61 +450,154 @@ const SettingsPage = () => {
 
             {/* Preferences Tab */}
             {activeTab === 'preferences' && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Application Preferences</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <label className="text-sm font-medium text-gray-700">Notifications</label>
-                        <p className="text-sm text-gray-500">Receive notifications about new features and updates</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={preferences.notifications}
-                          onChange={(e) => setPreferences({ ...preferences, notifications: e.target.checked })}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                      </label>
+              <div className="space-y-8">
+                {/* User Statistics */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Statistics</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-blue-600">{userStats.totalConversations}</p>
+                      <p className="text-sm text-gray-600">Conversations</p>
                     </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <label className="text-sm font-medium text-gray-700">Auto-save conversations</label>
-                        <p className="text-sm text-gray-500">Automatically save your conversations</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={preferences.autoSave}
-                          onChange={(e) => setPreferences({ ...preferences, autoSave: e.target.checked })}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                      </label>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-600">{userStats.totalMessages}</p>
+                      <p className="text-sm text-gray-600">Messages</p>
                     </div>
-                    
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-purple-600">{userStats.totalTokens.toLocaleString()}</p>
+                      <p className="text-sm text-gray-600">Tokens Used</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-orange-600">${userStats.totalCost.toFixed(2)}</p>
+                      <p className="text-sm text-gray-600">Total Cost</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Application Preferences */}
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Application Preferences</h3>
+                  <div className="space-y-6">
+                    {/* Theme Selection */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        Theme Preference
+                      </label>
+                      <div className="grid grid-cols-3 gap-3">
+                        {['light', 'dark', 'system'].map((theme) => (
+                          <button
+                            key={theme}
+                            onClick={() => setPreferences({ ...preferences, theme: theme as any })}
+                            className={`p-3 rounded-lg border-2 transition-colors capitalize ${
+                              preferences.theme === theme
+                                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            {theme}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Language Selection */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Default AI Provider
+                        Language
                       </label>
                       <select
-                        value={preferences.defaultProvider}
-                        onChange={(e) => setPreferences({ ...preferences, defaultProvider: e.target.value })}
+                        value={preferences.language}
+                        onChange={(e) => setPreferences({ ...preferences, language: e.target.value })}
                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       >
-                        <option value="google">Google AI Studio</option>
-                        <option value="openrouter">OpenRouter</option>
+                        <option value="en">English</option>
+                        <option value="es">Español</option>
+                        <option value="fr">Français</option>
+                        <option value="de">Deutsch</option>
+                        <option value="zh">中文</option>
+                        <option value="ja">日本語</option>
                       </select>
                     </div>
                     
-                    <div className="flex justify-end">
+                    {/* Toggle Preferences */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Notifications</label>
+                          <p className="text-sm text-gray-500">Receive notifications about new features and updates</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={preferences.notifications}
+                            onChange={(e) => setPreferences({ ...preferences, notifications: e.target.checked })}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Auto-save conversations</label>
+                          <p className="text-sm text-gray-500">Automatically save your conversations</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={preferences.autoSave}
+                            onChange={(e) => setPreferences({ ...preferences, autoSave: e.target.checked })}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                    </div>
+                    
+                    {/* AI Provider and Model Selection */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Default AI Provider
+                        </label>
+                        <select
+                          value={preferences.defaultProvider}
+                          onChange={(e) => {
+                            const newProvider = e.target.value;
+                            setPreferences({ 
+                              ...preferences, 
+                              defaultProvider: newProvider,
+                              defaultModel: providerModels[newProvider as keyof typeof providerModels][0]
+                            });
+                          }}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="google">Google AI Studio</option>
+                          <option value="openrouter">OpenRouter</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Default Model
+                        </label>
+                        <select
+                          value={preferences.defaultModel}
+                          onChange={(e) => setPreferences({ ...preferences, defaultModel: e.target.value })}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          {providerModels[preferences.defaultProvider as keyof typeof providerModels]?.map((model) => (
+                            <option key={model} value={model}>{model}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end pt-4">
                       <button
                         onClick={handlePreferencesUpdate}
                         disabled={isLoading}
-                        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         {isLoading ? (
                           <LoadingSpinner size="sm" />

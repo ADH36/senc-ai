@@ -237,15 +237,41 @@ router.put('/conversations/:id/title', (req, res) => {
 // Get user preferences/settings
 router.get('/preferences', (req, res) => {
   try {
-    // For now, return default preferences
-    // In a real app, you might have a user_preferences table
-    const preferences = {
-      theme: 'light',
-      language: 'en',
-      notifications: true,
-      defaultProvider: 'google',
-      defaultModel: 'gemini-pro'
-    };
+    const userId = req.user.id;
+    
+    // Get user preferences from database
+    let preferences = db.prepare(`
+      SELECT theme, language, notifications, auto_save, default_provider, default_model
+      FROM user_preferences
+      WHERE user_id = ?
+    `).get(userId);
+    
+    // If no preferences exist, create default ones
+    if (!preferences) {
+      db.prepare(`
+        INSERT INTO user_preferences (user_id, theme, language, notifications, auto_save, default_provider, default_model)
+        VALUES (?, 'light', 'en', 1, 1, 'google', 'gemini-pro')
+      `).run(userId);
+      
+      preferences = {
+        theme: 'light',
+        language: 'en',
+        notifications: true,
+        auto_save: true,
+        default_provider: 'google',
+        default_model: 'gemini-pro'
+      };
+    } else {
+      // Convert database format to frontend format
+      preferences = {
+        theme: preferences.theme,
+        language: preferences.language,
+        notifications: Boolean(preferences.notifications),
+        autoSave: Boolean(preferences.auto_save),
+        defaultProvider: preferences.default_provider,
+        defaultModel: preferences.default_model
+      };
+    }
 
     res.json({ preferences });
   } catch (error) {
@@ -257,11 +283,33 @@ router.get('/preferences', (req, res) => {
 // Update user preferences
 router.put('/preferences', (req, res) => {
   try {
-    const { theme, language, notifications, defaultProvider, defaultModel } = req.body;
+    const userId = req.user.id;
+    const { preferences } = req.body;
     
-    // For now, just return success
-    // In a real app, you would save these to a user_preferences table
-    res.json({ message: 'Preferences updated successfully' });
+    if (!preferences) {
+      return res.status(400).json({ error: 'Preferences data is required' });
+    }
+    
+    // Update or insert user preferences
+    const result = db.prepare(`
+      INSERT OR REPLACE INTO user_preferences 
+      (user_id, theme, language, notifications, auto_save, default_provider, default_model, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).run(
+      userId,
+      preferences.theme || 'light',
+      preferences.language || 'en',
+      preferences.notifications ? 1 : 0,
+      preferences.autoSave ? 1 : 0,
+      preferences.defaultProvider || 'google',
+      preferences.defaultModel || 'gemini-pro'
+    );
+    
+    if (result.changes > 0) {
+      res.json({ message: 'Preferences updated successfully' });
+    } else {
+      res.status(500).json({ error: 'Failed to update preferences' });
+    }
   } catch (error) {
     console.error('Update preferences error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -311,6 +359,83 @@ router.get('/conversations/:id/export', (req, res) => {
     res.json({ exportData });
   } catch (error) {
     console.error('Export conversation error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Export all user data
+router.get('/export', (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get user info
+    const user = db.prepare(`
+      SELECT id, email, name, role, created_at
+      FROM users
+      WHERE id = ?
+    `).get(userId);
+    
+    // Get user preferences
+    const preferences = db.prepare(`
+      SELECT theme, language, notifications, auto_save, default_provider, default_model
+      FROM user_preferences
+      WHERE user_id = ?
+    `).get(userId);
+    
+    // Get all conversations
+    const conversations = db.prepare(`
+      SELECT id, title, provider, model, created_at, updated_at
+      FROM conversations
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `).all(userId);
+    
+    // Get all messages for each conversation
+    const conversationsWithMessages = conversations.map(conv => {
+      const messages = db.prepare(`
+        SELECT role, content, tokens_used, cost, created_at
+        FROM messages
+        WHERE conversation_id = ?
+        ORDER BY created_at ASC
+      `).all(conv.id);
+      
+      return {
+        ...conv,
+        messages
+      };
+    });
+    
+    // Get usage statistics
+    const usageStats = db.prepare(`
+      SELECT date, messages_sent, tokens_used, cost
+      FROM user_usage
+      WHERE user_id = ?
+      ORDER BY date DESC
+    `).all(userId);
+    
+    const exportData = {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        created_at: user.created_at
+      },
+      preferences: preferences || {},
+      conversations: conversationsWithMessages,
+      usage_statistics: usageStats,
+      export_date: new Date().toISOString(),
+      total_conversations: conversations.length,
+      total_messages: conversationsWithMessages.reduce((sum, conv) => sum + conv.messages.length, 0)
+    };
+    
+    // Set headers for file download
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="chatbot-data-${user.email}-${new Date().toISOString().split('T')[0]}.json"`);
+    
+    res.json(exportData);
+  } catch (error) {
+    console.error('Export user data error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
