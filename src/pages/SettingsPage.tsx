@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { User, Lock, Bell, Database, Download, Trash2, Save, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '../stores/authStore';
@@ -68,23 +68,7 @@ const SettingsPage = () => {
     openrouter: ['gpt-4o', 'gpt-4-turbo', 'claude-3-opus', 'claude-3-sonnet', 'llama-3.1-405b'],
   };
 
-  useEffect(() => {
-    fetchUserPreferences();
-    fetchUserStats();
-    // Update profile form when user changes
-    if (user) {
-      setProfileForm({
-        name: user.name || '',
-        email: user.email || '',
-      });
-      setUserStats(prev => ({
-        ...prev,
-        joinDate: user.created_at || new Date().toISOString(),
-      }));
-    }
-  }, [user, fetchUserPreferences, fetchUserStats]);
-
-  const fetchUserPreferences = async () => {
+  const fetchUserPreferences = useCallback(async () => {
     try {
       const response = await fetch('/api/user/preferences', {
         headers: {
@@ -97,12 +81,12 @@ const SettingsPage = () => {
         const data = await response.json();
         setPreferences(data.preferences || preferences);
       }
-    } catch (error) {
-      console.error('Failed to fetch preferences:', error);
+    } catch {
+      console.error('Failed to fetch preferences');
     }
-  };
+  }, [token, preferences]);
   
-  const fetchUserStats = async () => {
+  const fetchUserStats = useCallback(async () => {
     try {
       const response = await fetch('/api/user/dashboard', {
         headers: {
@@ -121,10 +105,26 @@ const SettingsPage = () => {
           joinDate: user?.created_at || new Date().toISOString(),
         });
       }
-    } catch (error) {
-      console.error('Failed to fetch user stats:', error);
+    } catch {
+      console.error('Failed to fetch user stats');
     }
-  };
+  }, [token, user?.created_at]);
+
+  useEffect(() => {
+    fetchUserPreferences();
+    fetchUserStats();
+    // Update profile form when user changes
+    if (user) {
+      setProfileForm({
+        name: user.name || '',
+        email: user.email || '',
+      });
+      setUserStats(prev => ({
+        ...prev,
+        joinDate: user.created_at || new Date().toISOString(),
+      }));
+    }
+  }, [user, fetchUserPreferences, fetchUserStats]);
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,7 +194,7 @@ const SettingsPage = () => {
         const error = await response.json();
         toast.error(error.message || 'Failed to change password');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to change password');
     } finally {
       setIsLoading(false);
@@ -219,7 +219,7 @@ const SettingsPage = () => {
       } else {
         toast.error('Failed to update preferences');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to update preferences');
     } finally {
       setIsLoading(false);
@@ -250,7 +250,7 @@ const SettingsPage = () => {
       } else {
         toast.error('Failed to export data');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to export data');
     } finally {
       setIsLoading(false);
