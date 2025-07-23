@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import Home from './pages/Home';
 import ChatPage from './pages/ChatPage';
 import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
@@ -48,13 +49,8 @@ function App() {
           element={isAuthenticated ? <Navigate to="/chat" replace /> : <RegisterPage />} 
         />
         
-        {/* Protected routes */}
-        <Route 
-          path="/" 
-          element={
-            <Navigate to={isAuthenticated ? "/chat" : "/login"} replace />
-          } 
-        />
+        {/* Public homepage */}
+        <Route path="/" element={<Home />} />
         <Route path="/chat" element={
           <ProtectedRoute>
             <ChatPage />

@@ -102,13 +102,13 @@ const SettingsPage = () => {
           totalMessages: data.stats?.totalMessages || 0,
           totalTokens: data.stats?.monthlyTokens || 0,
           totalCost: data.stats?.monthlyCost || 0,
-          joinDate: user?.created_at || new Date().toISOString(),
+          joinDate: new Date().toISOString(),
         });
       }
     } catch {
       console.error('Failed to fetch user stats');
     }
-  }, [token, user?.created_at]);
+  }, [token]);
 
   useEffect(() => {
     fetchUserPreferences();
@@ -121,7 +121,7 @@ const SettingsPage = () => {
       });
       setUserStats(prev => ({
         ...prev,
-        joinDate: user.created_at || new Date().toISOString(),
+        joinDate: new Date().toISOString(),
       }));
     }
   }, [user, fetchUserPreferences, fetchUserStats]);

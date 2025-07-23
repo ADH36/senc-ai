@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageSquare, Users, Shield, Zap, ArrowRight, Star, CheckCircle } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
+import Navbar from '../components/Navbar';
 
 const Home = () => {
   const { user } = useAuthStore();
@@ -61,10 +62,11 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      <Navbar />
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-indigo-600/10"></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16">
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
               Next-Gen AI
@@ -118,8 +120,11 @@ const Home = () => {
               <div className="text-center">
                 <div className="text-3xl font-bold text-blue-600">{stats.uptime}</div>
                 <div className="text-gray-600">Uptime</div>
-         </div>
-       </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Features Section */}
       <div className="py-20 bg-white">
@@ -262,6 +267,3 @@ const Home = () => {
 };
 
 export default Home;
-          </div>
-        </div>
-      </div>

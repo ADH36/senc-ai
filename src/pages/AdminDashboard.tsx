@@ -291,7 +291,7 @@ const AdminDashboard = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-blue-600 mb-1">Total Users</p>
-                        <p className="text-3xl font-bold text-blue-900">{stats.userStats?.total_users || stats.totalUsers || 0}</p>
+                        <p className="text-3xl font-bold text-blue-900">{stats.userStats?.total_users || 0}</p>
                         <p className="text-xs text-blue-600 mt-1">
                           {stats.userStats?.active_users || 0} active today
                         </p>
@@ -306,7 +306,7 @@ const AdminDashboard = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-green-600 mb-1">Conversations</p>
-                        <p className="text-3xl font-bold text-green-900">{stats.conversationStats?.total_conversations || stats.totalConversations || 0}</p>
+                        <p className="text-3xl font-bold text-green-900">{stats.conversationStats?.total_conversations || 0}</p>
                         <p className="text-xs text-green-600 mt-1">
                           {stats.conversationStats?.today_conversations || 0} today
                         </p>
@@ -321,7 +321,7 @@ const AdminDashboard = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-purple-600 mb-1">Messages</p>
-                        <p className="text-3xl font-bold text-purple-900">{stats.messageStats?.total_messages || stats.totalMessages || 0}</p>
+                        <p className="text-3xl font-bold text-purple-900">{stats.messageStats?.total_messages || 0}</p>
                         <p className="text-xs text-purple-600 mt-1">
                           {stats.messageStats?.today_messages || 0} today
                         </p>
@@ -338,7 +338,7 @@ const AdminDashboard = () => {
                         <p className="text-sm font-medium text-orange-600 mb-1">API Keys</p>
                         <p className="text-3xl font-bold text-orange-900">{apiKeys.length}</p>
                         <p className="text-xs text-orange-600 mt-1">
-                          {stats.apiKeyStats?.filter(key => key.status === 'active').length || 0} active
+                          {stats.apiKeyStats?.filter(key => key.active_keys > 0).length || 0} active
                         </p>
                       </div>
                       <div className="p-3 bg-orange-200 rounded-full">
