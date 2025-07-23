@@ -80,7 +80,7 @@ const SettingsPage = () => {
     
     try {
       setIsLoading(true);
-      await updateProfile(profileForm.name, profileForm.email);
+      await updateProfile({ name: profileForm.name, email: profileForm.email });
       toast.success('Profile updated successfully');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update profile');

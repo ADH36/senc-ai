@@ -8,6 +8,7 @@ interface Message {
   tokens_used?: number;
   cost?: number;
   created_at: string;
+  timestamp: string;
 }
 
 interface Conversation {
@@ -35,10 +36,13 @@ interface ChatState {
   loadMessages: (conversationId: number) => Promise<void>;
   sendMessage: (message: string, conversationId?: number) => Promise<void>;
   createNewConversation: () => void;
+  createConversation: (title: string) => Promise<Conversation>;
   deleteConversation: (conversationId: number) => Promise<void>;
   setCurrentConversation: (conversation: Conversation | null) => void;
   setProvider: (provider: 'google' | 'openrouter') => void;
   setModel: (model: string) => void;
+  setSelectedProvider: (provider: 'google' | 'openrouter') => void;
+  setSelectedModel: (model: string) => void;
   loadAvailableModels: () => Promise<void>;
 }
 
@@ -110,6 +114,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       role: 'user',
       content: message,
       created_at: new Date().toISOString(),
+      timestamp: new Date().toISOString(),
     };
     
     set({ messages: [...messages, userMessage] });
@@ -141,6 +146,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         tokens_used: data.tokensUsed,
         cost: data.cost,
         created_at: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
       };
       
       set((state) => ({ 
@@ -168,6 +174,34 @@ export const useChatStore = create<ChatState>((set, get) => ({
       currentConversation: null, 
       messages: [] 
     });
+  },
+
+  createConversation: async (title: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/chat/conversations`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ title }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create conversation');
+      }
+
+      const data = await response.json();
+      const newConversation = data.conversation;
+      
+      set((state) => ({
+        conversations: [newConversation, ...state.conversations],
+        currentConversation: newConversation,
+        messages: []
+      }));
+      
+      return newConversation;
+    } catch (error) {
+      console.error('Create conversation error:', error);
+      throw error;
+    }
   },
 
   deleteConversation: async (conversationId: number) => {
@@ -214,6 +248,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   setModel: (model: string) => {
+    set({ selectedModel: model });
+  },
+
+  setSelectedProvider: (provider: 'google' | 'openrouter') => {
+    const { availableModels } = get();
+    const models = availableModels[provider] || [];
+    const defaultModel = models.length > 0 ? models[0].id : '';
+    
+    set({ 
+      selectedProvider: provider,
+      selectedModel: defaultModel 
+    });
+  },
+
+  setSelectedModel: (model: string) => {
     set({ selectedModel: model });
   },
 

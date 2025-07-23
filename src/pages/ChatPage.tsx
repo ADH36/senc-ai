@@ -5,12 +5,7 @@ import { useChatStore } from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 
-interface Message {
-  id: string;
-  content: string;
-  role: 'user' | 'assistant';
-  timestamp: string;
-}
+// Remove duplicate Message interface since it's already defined in the store
 
 const ChatPage = () => {
   const [message, setMessage] = useState('');
@@ -23,6 +18,7 @@ const ChatPage = () => {
     currentConversation,
     messages,
     isLoading,
+    isSending,
     selectedProvider,
     selectedModel,
     availableModels,
@@ -32,6 +28,8 @@ const ChatPage = () => {
     createConversation,
     deleteConversation,
     setCurrentConversation,
+    setSelectedProvider,
+    setSelectedModel,
     loadAvailableModels,
   } = useChatStore();
   
@@ -57,7 +55,7 @@ const ChatPage = () => {
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() || isLoading) return;
+    if (!message.trim() || isSending) return;
     
     const messageContent = message.trim();
     setMessage('');
@@ -77,7 +75,7 @@ const ChatPage = () => {
         conversationId = newConversation.id;
       }
       
-      await sendMessage(conversationId, messageContent);
+      await sendMessage(messageContent, conversationId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to send message');
     } finally {
@@ -110,7 +108,7 @@ const ChatPage = () => {
     }
   };
 
-  const handleDeleteConversation = async (conversationId: string) => {
+  const handleDeleteConversation = async (conversationId: number) => {
     if (window.confirm('Are you sure you want to delete this conversation?')) {
       try {
         await deleteConversation(conversationId);
@@ -165,7 +163,7 @@ const ChatPage = () => {
             <div className="relative">
               <select
                 value={selectedProvider}
-                onChange={(e) => useChatStore.getState().setSelectedProvider(e.target.value)}
+                onChange={(e) => setSelectedProvider(e.target.value as 'google' | 'openrouter')}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
               >
                 <option value="google">Google AI Studio</option>
@@ -177,7 +175,7 @@ const ChatPage = () => {
             <div className="relative">
               <select
                 value={selectedModel}
-                onChange={(e) => useChatStore.getState().setSelectedModel(e.target.value)}
+                onChange={(e) => setSelectedModel(e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
               >
                 {availableModels[selectedProvider]?.map((model) => (
@@ -354,15 +352,15 @@ const ChatPage = () => {
                 placeholder="Type your message..."
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                 style={{ minHeight: '44px', maxHeight: '120px' }}
-                disabled={isLoading}
+                disabled={isSending}
               />
             </div>
             <button
               onClick={handleSendMessage}
-              disabled={!message.trim() || isLoading}
+              disabled={!message.trim() || isSending}
               className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isLoading ? (
+              {isSending ? (
                 <LoadingSpinner size="sm" />
               ) : (
                 <Send className="w-5 h-5" />
