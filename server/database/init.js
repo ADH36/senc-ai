@@ -117,12 +117,102 @@ export const initDatabase = () => {
     )
   `);
 
+  // Subscription plans table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS subscription_plans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      price DECIMAL(10, 2) NOT NULL,
+      billing_cycle TEXT NOT NULL CHECK (billing_cycle IN ('monthly', 'yearly', 'one_time')),
+      features TEXT, -- JSON string of features
+      message_limit INTEGER DEFAULT NULL, -- NULL for unlimited
+      is_active BOOLEAN DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // User subscriptions table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      plan_id INTEGER NOT NULL,
+      status TEXT DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'expired', 'pending')),
+      current_period_start DATETIME NOT NULL,
+      current_period_end DATETIME NOT NULL,
+      cancel_at_period_end BOOLEAN DEFAULT 0,
+      stripe_subscription_id TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+      FOREIGN KEY (plan_id) REFERENCES subscription_plans (id)
+    )
+  `);
+
+  // User credits table (for pay-per-message)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_credits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      credits DECIMAL(10, 2) DEFAULT 0,
+      total_purchased DECIMAL(10, 2) DEFAULT 0,
+      total_used DECIMAL(10, 2) DEFAULT 0,
+      last_purchase_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+      UNIQUE(user_id)
+    )
+  `);
+
+  // Payment transactions table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payment_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      type TEXT NOT NULL CHECK (type IN ('subscription', 'credits', 'refund')),
+      amount DECIMAL(10, 2) NOT NULL,
+      currency TEXT DEFAULT 'USD',
+      status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'refunded')),
+      stripe_payment_intent_id TEXT,
+      stripe_invoice_id TEXT,
+      description TEXT,
+      metadata TEXT, -- JSON string for additional data
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+  `);
+
+  // AI models configuration table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_models (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      provider TEXT NOT NULL,
+      model_name TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      description TEXT,
+      cost_per_token DECIMAL(10, 8) DEFAULT 0,
+      max_tokens INTEGER DEFAULT 4096,
+      is_active BOOLEAN DEFAULT 1,
+      required_plan TEXT DEFAULT 'free' CHECK (required_plan IN ('free', 'premium', 'credits')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(provider, model_name)
+    )
+  `);
+
   // Create indexes for better performance
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
     CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
     CREATE INDEX IF NOT EXISTS idx_user_usage_user_date ON user_usage(user_id, date);
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user_id ON user_subscriptions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_payment_transactions_user_id ON payment_transactions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_ai_models_provider ON ai_models(provider);
   `);
 
   // Insert default admin user if not exists
@@ -140,13 +230,102 @@ export const initDatabase = () => {
     console.log('   Password: admin123');
   }
 
+  // Insert default subscription plans
+  const defaultPlans = [
+    {
+      name: 'Free',
+      description: 'Perfect for getting started',
+      price: 0,
+      billing_cycle: 'monthly',
+      features: JSON.stringify(['10 messages per day', 'Basic AI models', 'Community support']),
+      message_limit: 10
+    },
+    {
+      name: 'Premium',
+      description: 'Unlimited access to all features',
+      price: 19.99,
+      billing_cycle: 'monthly',
+      features: JSON.stringify(['Unlimited messages', 'All AI models', 'Priority support', 'Advanced analytics']),
+      message_limit: null
+    },
+    {
+      name: 'Pay-per-Message',
+      description: 'Pay only for what you use',
+      price: 0,
+      billing_cycle: 'one_time',
+      features: JSON.stringify(['No monthly fees', 'All AI models', 'Flexible usage']),
+      message_limit: null
+    }
+  ];
+
+  const insertPlan = db.prepare(`
+    INSERT OR IGNORE INTO subscription_plans (name, description, price, billing_cycle, features, message_limit)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+
+  defaultPlans.forEach(plan => {
+    insertPlan.run(plan.name, plan.description, plan.price, plan.billing_cycle, plan.features, plan.message_limit);
+  });
+
+  // Insert default AI models
+  const defaultModels = [
+    {
+      provider: 'google',
+      model_name: 'gemini-pro',
+      display_name: 'Gemini Pro',
+      description: 'Google\'s most capable AI model',
+      cost_per_token: 0.0000005,
+      max_tokens: 8192,
+      required_plan: 'free'
+    },
+    {
+      provider: 'google',
+      model_name: 'gemini-pro-vision',
+      display_name: 'Gemini Pro Vision',
+      description: 'Gemini Pro with vision capabilities',
+      cost_per_token: 0.0000008,
+      max_tokens: 4096,
+      required_plan: 'premium'
+    },
+    {
+      provider: 'openrouter',
+      model_name: 'openai/gpt-4',
+      display_name: 'GPT-4',
+      description: 'OpenAI\'s most advanced model',
+      cost_per_token: 0.00003,
+      max_tokens: 8192,
+      required_plan: 'premium'
+    },
+    {
+      provider: 'openrouter',
+      model_name: 'anthropic/claude-3-sonnet',
+      display_name: 'Claude 3 Sonnet',
+      description: 'Anthropic\'s balanced AI model',
+      cost_per_token: 0.000015,
+      max_tokens: 4096,
+      required_plan: 'credits'
+    }
+  ];
+
+  const insertModel = db.prepare(`
+    INSERT OR IGNORE INTO ai_models (provider, model_name, display_name, description, cost_per_token, max_tokens, required_plan)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  defaultModels.forEach(model => {
+    insertModel.run(model.provider, model.model_name, model.display_name, model.description, model.cost_per_token, model.max_tokens, model.required_plan);
+  });
+
   // Insert default system settings
   const defaultSettings = [
     { key: 'site_name', value: 'AI Chatbot Platform', description: 'Website name' },
-    { key: 'max_messages_per_day', value: '100', description: 'Maximum messages per user per day' },
+    { key: 'max_messages_per_day', value: '10', description: 'Maximum messages per free user per day' },
     { key: 'registration_enabled', value: 'true', description: 'Allow new user registration' },
     { key: 'default_provider', value: 'google', description: 'Default AI provider' },
-    { key: 'default_model', value: 'gemini-pro', description: 'Default AI model' }
+    { key: 'default_model', value: 'gemini-pro', description: 'Default AI model' },
+    { key: 'stripe_publishable_key', value: '', description: 'Stripe publishable key' },
+    { key: 'stripe_secret_key', value: '', description: 'Stripe secret key' },
+    { key: 'credits_per_dollar', value: '100', description: 'Credits per dollar for pay-per-message' }
   ];
 
   const insertSetting = db.prepare(`

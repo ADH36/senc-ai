@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Plus, Trash2, Settings, MessageSquare, ChevronDown } from 'lucide-react';
+import { Send, Bot, User, Plus, Trash2, Settings, MessageSquare, ChevronDown, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { useChatStore } from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
@@ -22,6 +22,7 @@ const ChatPage = () => {
     selectedProvider,
     selectedModel,
     availableModels,
+    userCredits,
     loadConversations,
     loadMessages,
     sendMessage,
@@ -31,6 +32,7 @@ const ChatPage = () => {
     setSelectedProvider,
     setSelectedModel,
     loadAvailableModels,
+    loadUserCredits,
   } = useChatStore();
   
   const { user } = useAuthStore();
@@ -38,7 +40,8 @@ const ChatPage = () => {
   useEffect(() => {
     loadConversations();
     loadAvailableModels();
-  }, [loadConversations, loadAvailableModels]);
+    loadUserCredits();
+  }, [loadConversations, loadAvailableModels, loadUserCredits]);
 
   useEffect(() => {
     if (currentConversation) {
@@ -158,16 +161,30 @@ const ChatPage = () => {
             </button>
           </div>
           
+          {/* Credits Display */}
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <CreditCard className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-900">Credits</span>
+              </div>
+              <span className="text-sm font-bold text-blue-900">${userCredits.toFixed(2)}</span>
+            </div>
+          </div>
+
           {/* Model Selection */}
           <div className="space-y-2">
             <div className="relative">
               <select
                 value={selectedProvider}
-                onChange={(e) => setSelectedProvider(e.target.value as 'google' | 'openrouter')}
+                onChange={(e) => setSelectedProvider(e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
               >
-                <option value="google">Google AI Studio</option>
-                <option value="openrouter">OpenRouter</option>
+                {[...new Set(availableModels.map(model => model.provider))].map((provider) => (
+                  <option key={provider} value={provider}>
+                    {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                  </option>
+                ))}
               </select>
               <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
@@ -178,14 +195,23 @@ const ChatPage = () => {
                 onChange={(e) => setSelectedModel(e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
               >
-                {availableModels[selectedProvider]?.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.name}
-                  </option>
-                ))}
+                {availableModels
+                  .filter(model => model.provider === selectedProvider && model.is_active)
+                  .map((model) => (
+                    <option key={model.id} value={model.id.toString()}>
+                      {model.display_name}
+                    </option>
+                  ))}
               </select>
               <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
+            
+            {/* Model Info */}
+            {selectedModel && (
+              <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+                {availableModels.find(m => m.id.toString() === selectedModel)?.description}
+              </div>
+            )}
           </div>
         </div>
 
@@ -245,7 +271,7 @@ const ChatPage = () => {
               </h2>
               {currentConversation && (
                 <p className="text-sm text-gray-500">
-                  {selectedProvider} • {selectedModel}
+                  {selectedProvider} • {availableModels.find(m => m.id.toString() === selectedModel)?.display_name || selectedModel}
                 </p>
               )}
             </div>

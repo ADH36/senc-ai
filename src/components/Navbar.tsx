@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { Bot, User, Settings, Shield, LogOut, Menu, X } from 'lucide-react';
+import { Bot, User, Settings, Shield, LogOut, Menu, X, CreditCard } from 'lucide-react';
 import { useState } from 'react';
 
 interface NavbarProps {
@@ -76,6 +76,14 @@ const Navbar = ({ showBackground = true }: NavbarProps) => {
                   {isUserMenuOpen && (
                     <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
                       <Link
+                        to="/billing"
+                        className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        <CreditCard className="w-4 h-4" />
+                        <span>Billing</span>
+                      </Link>
+                      <Link
                         to="/settings"
                         className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setIsUserMenuOpen(false)}
@@ -150,6 +158,23 @@ const Navbar = ({ showBackground = true }: NavbarProps) => {
                     <span>Admin Panel</span>
                   </Link>
                 )}
+                {isAdmin && (
+                  <Link
+                    to="/admin/billing"
+                    className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:bg-blue-50 transition-colors font-medium"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>Admin Billing</span>
+                  </Link>
+                )}
+                <Link
+                  to="/billing"
+                  className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Billing
+                </Link>
                 <Link
                   to="/settings"
                   className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors font-medium"

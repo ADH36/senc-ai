@@ -21,15 +21,28 @@ interface Conversation {
   updated_at: string;
 }
 
+interface AIModel {
+  id: number;
+  provider: string;
+  model_name: string;
+  display_name: string;
+  description: string;
+  cost_per_token: number;
+  max_tokens: number;
+  is_active: boolean;
+  required_plan: string;
+}
+
 interface ChatState {
   conversations: Conversation[];
   currentConversation: Conversation | null;
   messages: Message[];
   isLoading: boolean;
   isSending: boolean;
-  selectedProvider: 'google' | 'openrouter';
+  selectedProvider: string;
   selectedModel: string;
-  availableModels: Record<string, Array<{ id: string; name: string; description: string }>>;
+  availableModels: AIModel[];
+  userCredits: number;
   
   // Actions
   loadConversations: () => Promise<void>;
@@ -39,11 +52,12 @@ interface ChatState {
   createConversation: (title: string) => Promise<Conversation>;
   deleteConversation: (conversationId: number) => Promise<void>;
   setCurrentConversation: (conversation: Conversation | null) => void;
-  setProvider: (provider: 'google' | 'openrouter') => void;
+  setProvider: (provider: string) => void;
   setModel: (model: string) => void;
-  setSelectedProvider: (provider: 'google' | 'openrouter') => void;
+  setSelectedProvider: (provider: string) => void;
   setSelectedModel: (model: string) => void;
   loadAvailableModels: () => Promise<void>;
+  loadUserCredits: () => Promise<void>;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -63,8 +77,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoading: false,
   isSending: false,
   selectedProvider: 'google',
-  selectedModel: 'gemini-pro',
-  availableModels: {},
+  selectedModel: '',
+  availableModels: [],
+  userCredits: 0,
 
   loadConversations: async () => {
     set({ isLoading: true });
@@ -236,10 +251,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  setProvider: (provider: 'google' | 'openrouter') => {
+  setProvider: (provider: string) => {
     const { availableModels } = get();
-    const models = availableModels[provider] || [];
-    const defaultModel = models.length > 0 ? models[0].id : '';
+    const models = availableModels.filter(model => model.provider === provider && model.is_active);
+    const defaultModel = models.length > 0 ? models[0].id.toString() : '';
     
     set({ 
       selectedProvider: provider,
@@ -251,10 +266,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ selectedModel: model });
   },
 
-  setSelectedProvider: (provider: 'google' | 'openrouter') => {
+  setSelectedProvider: (provider: string) => {
     const { availableModels } = get();
-    const models = availableModels[provider] || [];
-    const defaultModel = models.length > 0 ? models[0].id : '';
+    const models = availableModels.filter(model => model.provider === provider && model.is_active);
+    const defaultModel = models.length > 0 ? models[0].id.toString() : '';
     
     set({ 
       selectedProvider: provider,
@@ -268,7 +283,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   loadAvailableModels: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/chat/models`, {
+      const response = await fetch(`${API_BASE_URL}/api/billing/admin/models`, {
         headers: getAuthHeaders(),
       });
 
@@ -277,15 +292,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
 
       const data = await response.json();
-      set({ availableModels: data.models });
+      const activeModels = data.filter((model: AIModel) => model.is_active);
+      set({ availableModels: activeModels });
       
       // Set default model if none selected
       const { selectedProvider, selectedModel } = get();
-      if (!selectedModel && data.models[selectedProvider]?.length > 0) {
-        set({ selectedModel: data.models[selectedProvider][0].id });
+      if (!selectedModel && activeModels.length > 0) {
+        const defaultModel = activeModels.find(model => model.provider === selectedProvider) || activeModels[0];
+        set({ 
+          selectedModel: defaultModel.id.toString(),
+          selectedProvider: defaultModel.provider 
+        });
       }
     } catch (error) {
       console.error('Load models error:', error);
+    }
+  },
+
+  loadUserCredits: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/subscription/credits`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load user credits');
+      }
+
+      const data = await response.json();
+      set({ userCredits: data.credits });
+    } catch (error) {
+      console.error('Load user credits error:', error);
     }
   },
 }));

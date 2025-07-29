@@ -11,6 +11,8 @@ import authRoutes from './routes/auth.js';
 import chatRoutes from './routes/chat.js';
 import adminRoutes from './routes/admin.js';
 import userRoutes from './routes/user.js';
+import subscriptionRoutes from './routes/subscription.js';
+import billingRoutes from './routes/billing.js';
 
 // Import database initialization
 import { initDatabase } from './database/init.js';
@@ -52,6 +54,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/billing', billingRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

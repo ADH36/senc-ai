@@ -12,6 +12,8 @@ import ChatPage from './pages/ChatPage';
 import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
 import AdminDashboard from './pages/AdminDashboard';
+import BillingPage from './pages/BillingPage';
+import AdminBillingPage from './pages/AdminBillingPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 function App() {
@@ -66,11 +68,21 @@ function App() {
             <SettingsPage />
           </ProtectedRoute>
         } />
+        <Route path="/billing" element={
+          <ProtectedRoute>
+            <BillingPage />
+          </ProtectedRoute>
+        } />
         
         {/* Admin routes */}
         <Route path="/admin" element={
           <AdminRoute>
             <AdminDashboard />
+          </AdminRoute>
+        } />
+        <Route path="/admin/billing" element={
+          <AdminRoute>
+            <AdminBillingPage />
           </AdminRoute>
         } />
         
